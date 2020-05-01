@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 Note:
 Part of this code was copied and modified from github.com/mila-udem/fuel.git (MIT License)

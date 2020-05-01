@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 import argparse
 import sys
 import numpy as np
@@ -104,12 +104,12 @@ if __name__ == "__main__":
   log = h5py.File("dataset/log/"+dataset+".h5", "r")
   cam = h5py.File("dataset/camera/"+dataset+".h5", "r")
 
-  print log.keys()
+  print(log.keys())
 
   # skip to highway
   for i in range(skip*100, log['times'].shape[0]):
     if i%100 == 0:
-      print "%.2f seconds elapsed" % (i/100.0)
+      print("%.2f seconds elapsed" % (i/100.0))
     img = cam['X'][log['cam1_ptr'][i]].swapaxes(0,2).swapaxes(0,1)
 
     predicted_steers = model.predict(img[None, :, :, :].transpose(0, 3, 1, 2))[0][0]
