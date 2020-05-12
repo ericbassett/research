@@ -131,7 +131,7 @@ def get_model(sess, image_shape=(80, 160, 3), gf_dim=64, df_dim=64, batch_size=6
               name="autoencoder", gpu=0):
     K.set_session(sess)
     checkpoint_dir = './outputs/results_' + name
-    with tf.variable_scope(name), tf.device("/gpu:{}".format(gpu)):
+    with tf.variable_scope(name):
       # sizes
       ch = image_shape[2]
       rows = [image_shape[0]/i for i in [16, 8, 4, 2, 1]]
