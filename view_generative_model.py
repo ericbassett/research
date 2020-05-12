@@ -48,7 +48,7 @@ if __name__ == "__main__":
 
   model_code = open('models/'+MODEL_NAME+'.py').read()
 
-  with tf.Session() as sess:
+  with tf.compat.v1.Session() as sess:
     K.set_session(sess)
     g_train, d_train, sampler, saver, loader, [G, E, T] = get_model(sess=sess, name=args.name, batch_size=args.batch, gpu=args.gpu)
 

@@ -9,7 +9,7 @@ import os
 os.environ["KERAS_BACKEND"] = "tensorflow"
 import argparse
 import time
-from keras import callbacks as cbks
+from tensorflow.compat.v1.keras import callbacks as cbks
 import logging
 import tensorflow as tf
 import numpy as np
@@ -155,7 +155,7 @@ if __name__ == "__main__":
   if not os.path.exists("./outputs/samples_"+args.name):
       os.makedirs("./outputs/samples_"+args.name)
 
-  with tf.Session() as sess:
+  with tf.compat.v1.Session() as sess:
     g_train, d_train, sampler, saver, loader, extras = get_model(sess=sess, name=args.name, batch_size=args.batch, gpu=args.gpu)
 
     # start from checkpoint

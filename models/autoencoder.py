@@ -16,20 +16,20 @@ import numpy as np
 import cv2
 import tensorflow as tf
 from utils import load, save
-from layers import Deconv2D
-from keras import backend as K
-from keras.layers import Input, Dense, Reshape, Activation, Convolution2D, LeakyReLU, Flatten, BatchNormalization as BN
-from keras.models import Sequential, Model
-from keras import initializations
+# from layers import Conv2DTranspose
+from tensorflow.compat.v1.keras import backend as K
+from tensorflow.compat.v1.keras.layers import Input, Dense, Reshape, Activation, Convolution2D, LeakyReLU, Flatten, BatchNormalization as BN, Conv2DTranspose
+from tensorflow.compat.v1.keras.models import Sequential, Model
+from tensorflow.compat.v1.keras import initializers
 from functools import partial
 learning_rate = .0002
 beta1 = .5
 z_dim = 512
-normal = partial(initializations.normal, scale=.02)
+normal = partial(initializers.normal, stddev=.02)
 
 
-def mean_normal(shape, mean=1., scale=0.02, name=None):
-    return K.variable(np.random.normal(loc=mean, scale=scale, size=shape), name=name)
+def mean_normal(shape, mean=1., scale=0.02, name=None, dtype=tf.dtypes.float32):
+    return K.variable(np.random.normal(loc=mean, scale=scale, size=shape), name=name, dtype=dtype)
 
 
 def cleanup(data):
@@ -44,24 +44,32 @@ def generator(batch_size, gf_dim, ch, rows, cols):
 
     model = Sequential()
 
-    model.add(Dense(gf_dim*8*rows[0]*cols[0], batch_input_shape=(batch_size, z_dim), name="g_h0_lin", init=normal))
+    model.add(Dense(gf_dim*8*rows[0]*cols[0], batch_input_shape=(batch_size, z_dim), name="g_h0_lin", kernel_initializer='normal'))
     model.add(Reshape((rows[0], cols[0], gf_dim*8)))
-    model.add(BN(mode=2, axis=3, name="g_bn0", gamma_init=mean_normal, epsilon=1e-5))
+
+		# mode=2, axis=3 replaced with axis=3
+    model.add(BN(axis=3, name="g_bn0", gamma_initializer=mean_normal, epsilon=1e-5))
     model.add(Activation("relu"))
 
-    model.add(Deconv2D(gf_dim*4, 5, 5, subsample=(2, 2), name="g_h1", init=normal))
-    model.add(BN(mode=2, axis=3, name="g_bn1", gamma_init=mean_normal, epsilon=1e-5))
+    model.add(Conv2DTranspose(gf_dim*4, (5, 5), strides=(2, 2), name="g_h1", kernel_initializer='normal'))
+
+		# mode=2, axis=3 replaced with axis=3
+    model.add(BN(axis=3, name="g_bn1", gamma_initializer=mean_normal, epsilon=1e-5))
     model.add(Activation("relu"))
 
-    model.add(Deconv2D(gf_dim*2, 5, 5, subsample=(2, 2), name="g_h2", init=normal))
-    model.add(BN(mode=2, axis=3, name="g_bn2", gamma_init=mean_normal, epsilon=1e-5))
+    model.add(Conv2DTranspose(gf_dim*2, (5, 5), strides=(2, 2), name="g_h2", kernel_initializer='normal'))
+
+		# mode=2, axis=3 replaced with axis=3
+    model.add(BN(axis=3, name="g_bn2", gamma_initializer=mean_normal, epsilon=1e-5))
     model.add(Activation("relu"))
 
-    model.add(Deconv2D(gf_dim, 5, 5, subsample=(2, 2), name="g_h3", init=normal))
-    model.add(BN(mode=2, axis=3, name="g_bn3", gamma_init=mean_normal, epsilon=1e-5))
+    model.add(Conv2DTranspose(gf_dim, (5, 5), strides=(2, 2), name="g_h3", kernel_initializer='normal'))
+
+		# mode=2, axis=3 replaced with axis=3
+    model.add(BN(axis=3, name="g_bn3", gamma_initializer=mean_normal, epsilon=1e-5))
     model.add(Activation("relu"))
 
-    model.add(Deconv2D(ch, 5, 5, subsample=(2, 2), name="g_h4", init=normal))
+    model.add(Conv2DTranspose(ch, (5, 5), strides=(2, 2), name="g_h4", kernel_initializer='normal'))
     model.add(Activation("tanh"))
 
     return model
@@ -71,56 +79,68 @@ def encoder(batch_size, df_dim, ch, rows, cols):
 
     model = Sequential()
     X = Input(batch_shape=(batch_size, rows[-1], cols[-1], ch))
-    model = Convolution2D(df_dim, 5, 5, subsample=(2, 2), border_mode="same",
-                          name="e_h0_conv", dim_ordering="tf", init=normal)(X)
+    model = Convolution2D(df_dim, (5, 5), strides=(2, 2), padding="same",
+                          name="e_h0_conv", data_format="channels_last", kernel_initializer='normal')(X)
     model = LeakyReLU(.2)(model)
 
-    model = Convolution2D(df_dim*2, 5, 5, subsample=(2, 2), border_mode="same",
-                          name="e_h1_conv", dim_ordering="tf")(model)
-    model = BN(mode=2, axis=3, name="e_bn1", gamma_init=mean_normal, epsilon=1e-5)(model)
+    model = Convolution2D(df_dim*2, (5, 5), strides=(2, 2), padding="same",
+                          name="e_h1_conv", data_format="channels_last")(model)
+
+		# mode=2, axis=3 replaced with axis=3
+    model = BN(axis=3, name="e_bn1", gamma_initializer=mean_normal, epsilon=1e-5)(model)
     model = LeakyReLU(.2)(model)
 
-    model = Convolution2D(df_dim*4, 5, 5, subsample=(2, 2), name="e_h2_conv", border_mode="same",
-                          dim_ordering="tf", init=normal)(model)
-    model = BN(mode=2, axis=3, name="e_bn2", gamma_init=mean_normal, epsilon=1e-5)(model)
+    model = Convolution2D(df_dim*4, (5, 5), strides=(2, 2), name="e_h2_conv", padding="same",
+                          data_format="channels_last", kernel_initializer='normal')(model)
+
+		# mode=2, axis=3 replaced with axis=3
+    model = BN(axis=3, name="e_bn2", gamma_initializer=mean_normal, epsilon=1e-5)(model)
     model = LeakyReLU(.2)(model)
 
-    model = Convolution2D(df_dim*8, 5, 5, subsample=(2, 2), border_mode="same",
-                          name="e_h3_conv", dim_ordering="tf", init=normal)(model)
-    model = BN(mode=2, axis=3, name="e_bn3", gamma_init=mean_normal, epsilon=1e-5)(model)
+    model = Convolution2D(df_dim*8, (5, 5), strides=(2, 2), padding="same",
+                          name="e_h3_conv", data_format="channels_last", kernel_initializer='normal')(model)
+
+		# mode=2, axis=3 replaced with axis=3
+    model = BN(axis=3, name="e_bn3", gamma_initializer=mean_normal, epsilon=1e-5)(model)
     model = LeakyReLU(.2)(model)
     model = Flatten()(model)
 
-    mean = Dense(z_dim, name="e_h3_lin", init=normal)(model)
-    logsigma = Dense(z_dim, name="e_h4_lin", activation="tanh", init=normal)(model)
+    mean = Dense(z_dim, name="e_h3_lin", kernel_initializer='normal')(model)
+    logsigma = Dense(z_dim, name="e_h4_lin", activation="tanh", kernel_initializer='normal')(model)
     meansigma = Model([X], [mean, logsigma])
     return meansigma
 
 
 def discriminator(batch_size, df_dim, ch, rows, cols):
     X = Input(batch_shape=(batch_size, rows[-1], cols[-1], ch))
-    model = Convolution2D(df_dim, 5, 5, subsample=(2, 2), border_mode="same",
+    model = Convolution2D(df_dim, (5, 5), strides=(2, 2), padding="same",
                           batch_input_shape=(batch_size, rows[-1], cols[-1], ch),
-                          name="d_h0_conv", dim_ordering="tf", init=normal)(X)
+                          name="d_h0_conv", data_format="channels_last", kernel_initializer='normal')(X)
     model = LeakyReLU(.2)(model)
 
-    model = Convolution2D(df_dim*2, 5, 5, subsample=(2, 2), border_mode="same",
-                          name="d_h1_conv", dim_ordering="tf", init=normal)(model)
-    model = BN(mode=2, axis=3, name="d_bn1", gamma_init=mean_normal, epsilon=1e-5)(model)
+    model = Convolution2D(df_dim*2, (5, 5), strides=(2, 2), padding="same",
+                          name="d_h1_conv", data_format="channels_last", kernel_initializer='normal')(model)
+
+		# mode=2, axis=3 replaced with axis=3
+    model = BN(axis=3, name="d_bn1", gamma_initializer=mean_normal, epsilon=1e-5)(model)
     model = LeakyReLU(.2)(model)
 
-    model = Convolution2D(df_dim*4, 5, 5, subsample=(2, 2), border_mode="same",
-                          name="d_h2_conv", dim_ordering="tf", init=normal)(model)
-    model = BN(mode=2, axis=3, name="d_bn2", gamma_init=mean_normal, epsilon=1e-5)(model)
+    model = Convolution2D(df_dim*4, (5, 5), strides=(2, 2), padding="same",
+                          name="d_h2_conv", data_format="channels_last", kernel_initializer='normal')(model)
+
+		# mode=2, axis=3 replaced with axis=3
+    model = BN(axis=3, name="d_bn2", gamma_initializer=mean_normal, epsilon=1e-5)(model)
     model = LeakyReLU(.2)(model)
 
-    model = Convolution2D(df_dim*8, 5, 5, subsample=(2, 2), border_mode="same",
-                          name="d_h3_conv", dim_ordering="tf", init=normal)(model)
+    model = Convolution2D(df_dim*8, (5, 5), strides=(2, 2), padding="same",
+                          name="d_h3_conv", data_format="channels_last", kernel_initializer='normal')(model)
 
-    dec = BN(mode=2, axis=3, name="d_bn3", gamma_init=mean_normal, epsilon=1e-5)(model)
+
+		# mode=2, axis=3 replaced with axis=3
+    dec = BN(axis=3, name="d_bn3", gamma_initializer=mean_normal, epsilon=1e-5)(model)
     dec = LeakyReLU(.2)(dec)
     dec = Flatten()(dec)
-    dec = Dense(1, name="d_h3_lin", init=normal)(dec)
+    dec = Dense(1, name="d_h3_lin", kernel_initializer='normal')(dec)
 
     output = Model([X], [dec, model])
 
@@ -131,11 +151,11 @@ def get_model(sess, image_shape=(80, 160, 3), gf_dim=64, df_dim=64, batch_size=6
               name="autoencoder", gpu=0):
     K.set_session(sess)
     checkpoint_dir = './outputs/results_' + name
-    with tf.variable_scope(name), tf.device("/gpu:{}".format(gpu)):
+    with tf.compat.v1.variable_scope(name), tf.device("/gpu:{}".format(gpu)):
       # sizes
       ch = image_shape[2]
-      rows = [image_shape[0]/i for i in [16, 8, 4, 2, 1]]
-      cols = [image_shape[1]/i for i in [16, 8, 4, 2, 1]]
+      rows = [image_shape[0]//i for i in [16, 8, 4, 2, 1]]
+      cols = [image_shape[1]//i for i in [16, 8, 4, 2, 1]]
 
       # nets
       G = generator(batch_size, gf_dim, ch, rows, cols)
@@ -165,17 +185,17 @@ def get_model(sess, image_shape=(80, 160, 3), gf_dim=64, df_dim=64, batch_size=6
 
       # costs
       recon_vs_gan = 1e-6
-      like_loss = tf.reduce_mean(tf.square(F_legit - F_dec_fake)) / 2.
-      kl_loss = tf.reduce_mean(-E_logsigma + .5 * (-1 + tf.exp(2. * E_logsigma) + tf.square(E_mean)))
+      like_loss = tf.reduce_mean(input_tensor=tf.square(F_legit - F_dec_fake)) / 2.
+      kl_loss = tf.reduce_mean(input_tensor=-E_logsigma + .5 * (-1 + tf.exp(2. * E_logsigma) + tf.square(E_mean)))
 
-      d_loss_legit = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(D_legit, tf.ones_like(D_legit)))
-      d_loss_fake1 = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(D_fake, tf.zeros_like(D_fake)))
-      d_loss_fake2 = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(D_dec_fake, tf.zeros_like(D_dec_fake)))
+      d_loss_legit = tf.reduce_mean(input_tensor=tf.nn.sigmoid_cross_entropy_with_logits(D_legit, tf.ones_like(D_legit)))
+      d_loss_fake1 = tf.reduce_mean(input_tensor=tf.nn.sigmoid_cross_entropy_with_logits(D_fake, tf.zeros_like(D_fake)))
+      d_loss_fake2 = tf.reduce_mean(input_tensor=tf.nn.sigmoid_cross_entropy_with_logits(D_dec_fake, tf.zeros_like(D_dec_fake)))
       d_loss_fake = d_loss_fake1 + d_loss_fake2
       d_loss = d_loss_legit + d_loss_fake
 
-      g_loss1 = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(D_fake, tf.ones_like(D_fake)))
-      g_loss2 = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(D_dec_fake, tf.ones_like(D_dec_fake)))
+      g_loss1 = tf.reduce_mean(input_tensor=tf.nn.sigmoid_cross_entropy_with_logits(D_fake, tf.ones_like(D_fake)))
+      g_loss2 = tf.reduce_mean(input_tensor=tf.nn.sigmoid_cross_entropy_with_logits(D_dec_fake, tf.ones_like(D_dec_fake)))
       g_loss = g_loss1 + g_loss2 + recon_vs_gan * like_loss
       e_loss = kl_loss + like_loss
 
@@ -190,10 +210,10 @@ def get_model(sess, image_shape=(80, 160, 3), gf_dim=64, df_dim=64, batch_size=6
       for v in e_vars:
         print(v.name)
 
-      e_optim = tf.train.AdamOptimizer(learning_rate, beta1=beta1).minimize(e_loss, var_list=e_vars)
-      d_optim = tf.train.AdamOptimizer(learning_rate, beta1=beta1).minimize(d_loss, var_list=d_vars)
-      g_optim = tf.train.AdamOptimizer(learning_rate, beta1=beta1).minimize(g_loss, var_list=g_vars)
-      tf.initialize_all_variables().run()
+      e_optim = tf.compat.v1.train.AdamOptimizer(learning_rate, beta1=beta1).minimize(e_loss, var_list=e_vars)
+      d_optim = tf.compat.v1.train.AdamOptimizer(learning_rate, beta1=beta1).minimize(d_loss, var_list=d_vars)
+      g_optim = tf.compat.v1.train.AdamOptimizer(learning_rate, beta1=beta1).minimize(g_loss, var_list=g_vars)
+      tf.compat.v1.initialize_all_variables().run()
 
     # summaries
     sum_d_loss_legit = tf.scalar_summary("d_loss_legit", d_loss_legit)
@@ -208,7 +228,7 @@ def get_model(sess, image_shape=(80, 160, 3), gf_dim=64, df_dim=64, batch_size=6
     sum_dec = tf.image_summary("E", G_dec)
 
     # saver
-    saver = tf.train.Saver()
+    saver = tf.compat.v1.train.Saver()
     g_sum = tf.merge_summary([sum_Z, sum_gen, sum_d_loss_fake, sum_g_loss])
     e_sum = tf.merge_summary([sum_dec, sum_e_loss, sum_e_mean, sum_e_sigma])
     d_sum = tf.merge_summary([sum_d_loss_legit, sum_d_loss])
@@ -219,7 +239,7 @@ def get_model(sess, image_shape=(80, 160, 3), gf_dim=64, df_dim=64, batch_size=6
       z2 = np.random.normal(0., 1., z.shape)
       outputs = [d_loss, d_loss_fake, d_loss_legit, d_sum, d_optim]
       with tf.control_dependencies(outputs):
-        updates = [tf.assign(p, new_p) for (p, new_p) in D.updates]
+        updates = [tf.compat.v1.assign(p, new_p) for (p, new_p) in D.updates]
       outs = sess.run(outputs + updates, feed_dict={Img: images, Z: z, Z2: z2, K.learning_phase(): 1})
       dl, dlf, dll, sums = outs[:4]
       writer.add_summary(sums, counter)
@@ -230,14 +250,14 @@ def get_model(sess, image_shape=(80, 160, 3), gf_dim=64, df_dim=64, batch_size=6
       z2 = np.random.normal(0., 1., z.shape)
       outputs = [g_loss, G_train, g_sum, g_optim]
       with tf.control_dependencies(outputs):
-        updates = [tf.assign(p, new_p) for (p, new_p) in G.updates]
+        updates = [tf.compat.v1.assign(p, new_p) for (p, new_p) in G.updates]
       outs = sess.run(outputs + updates, feed_dict={Img: images, Z: z, Z2: z2, K.learning_phase(): 1})
       gl, samples, sums = outs[:3]
       writer.add_summary(sums, counter)
       # encoder
       outputs = [e_loss, G_dec, e_sum, e_optim]
       with tf.control_dependencies(outputs):
-        updates = [tf.assign(p, new_p) for (p, new_p) in E.updates]
+        updates = [tf.compat.v1.assign(p, new_p) for (p, new_p) in E.updates]
       outs = sess.run(outputs + updates, feed_dict={Img: images, Z: z, Z2: z2, K.learning_phase(): 1})
       gl, samples, sums = outs[:3]
       writer.add_summary(sums, counter)
