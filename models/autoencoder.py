@@ -13,13 +13,6 @@ Alec Radford, Luke Metz, Soumith Chintala
 https://arxiv.org/abs/1511.06434
 """
 import tensorflow as tf
-<<<<<<< HEAD
-from tensorflow.keras.layers import Input, Dense, Reshape, Activation, Convolution2D, LeakyReLU, Flatten, BatchNormalization as BN
-
-learning_rate = .0002
-beta1 = .5
-z_dim = 512
-=======
 from utils import load, save
 # from layers import Conv2DTranspose
 from tensorflow.compat.v1.keras import backend as K
@@ -44,17 +37,12 @@ def cleanup(data):
   Z = np.random.normal(0, 1, (X.shape[0], z_dim))
   return Z, X
 
->>>>>>> temp-tflow
 
 def generator(batch_size, gf_dim, ch, rows, cols):
 
     model = tf.keras.Sequential()
 
-<<<<<<< HEAD
-    model.add(Dense(gf_dim*8*rows[0]*cols[0], input_shape=(batch_size, z_dim), name="g_h0_lin", init=normal))
-=======
     model.add(Dense(gf_dim*8*rows[0]*cols[0], batch_input_shape=(batch_size, z_dim), name="g_h0_lin", kernel_initializer='normal'))
->>>>>>> temp-tflow
     model.add(Reshape((rows[0], cols[0], gf_dim*8)))
 
 		# mode=2, axis=3 replaced with axis=3
@@ -82,9 +70,6 @@ def generator(batch_size, gf_dim, ch, rows, cols):
     model.add(Conv2DTranspose(ch, (5, 5), strides=(2, 2), name="g_h4", kernel_initializer='normal'))
     model.add(Activation("tanh"))
 
-<<<<<<< HEAD
-    return model
-=======
     return model
 
 
@@ -298,4 +283,3 @@ def get_model(sess, image_shape=(80, 160, 3), gf_dim=64, df_dim=64, batch_size=6
       return out, x
 
     return train_g, train_d, sampler, f_save, f_load, [G, D, E]
->>>>>>> temp-tflow
