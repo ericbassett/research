@@ -2,9 +2,9 @@ import os
 os.environ["KERAS_BACKEND"] = "tensorflow"
 import numpy as np
 import tensorflow as tf
-from keras.engine import Layer, InputSpec
-from keras import backend as K, regularizers, constraints, initializations, activations
-from keras.layers.recurrent import Recurrent, time_distributed_dense
+from tensorflow.keras.layers import Layer, InputSpec
+from tensorflow.compat.v1.keras import backend as K, regularizers, constraints, initializers, activations
+from tensorflow.compat.v1.keras.layers import RNN, TimeDistributed, Dense
 
 
 class Deconv2D(Layer):
@@ -19,7 +19,7 @@ class Deconv2D(Layer):
         self.nb_filter = nb_filter
         self.nb_row = nb_row
         self.nb_col = nb_col
-        self.init = initializations.get(init, dim_ordering=dim_ordering)
+        self.init = initializers.get(init, dim_ordering=dim_ordering)
         self.activation = activations.get(activation)
         assert border_mode in {'valid', 'same'}, 'border_mode must be in {valid, same}'
         self.border_mode = border_mode
@@ -129,8 +129,8 @@ class Deconv2D(Layer):
 class Bnorm2D(Layer):
   def __init__(self, epsilon=1e-5, momentum=0.9, weights=None, beta_init='zero',
                gamma_init='normal', **kwargs):
-    self.beta_init = initializations.get(beta_init)
-    self.gamma_init = initializations.get(gamma_init)
+    self.beta_init = initializers.get(beta_init)
+    self.gamma_init = initializers.get(gamma_init)
     self.epsilon = epsilon
     self.momentum = momentum
     self.initial_weights = weights
@@ -158,7 +158,7 @@ class Bnorm2D(Layer):
     return out
 
   def train_bn(self, x):
-    batch_mean, batch_var = tf.nn.moments(x, [0, 1, 2], name='moments')
+    batch_mean, batch_var = tf.nn.moments(x=x, axes=[0, 1, 2], name='moments')
     ema_apply_op = self.ema.apply([batch_mean, batch_var])
     self.ema_mean, self.ema_var = self.ema.average(batch_mean), self.ema.average(batch_var)
     with tf.control_dependencies([ema_apply_op]):
@@ -175,13 +175,13 @@ class Bnorm2D(Layer):
     return out
 
 
-class DreamyRNN(Recurrent):
+class DreamyRNN(RNN):
   '''Fully-connected RNN where the output is to be fed back to input.
   # Arguments
       output_dim: dimension of the internal projections and the final output.
       init: weight initialization function.
           Can be the name of an existing function (str),
-          or a Theano function (see: [initializations](../initializations.md)).
+          or a Theano function (see: [initializers](../initializers.md)).
       inner_init: initialization function of the inner cells.
       activation: activation function.
           Can be the name of an existing function (str),
@@ -204,8 +204,8 @@ class DreamyRNN(Recurrent):
                dropout_W=0., dropout_U=0., **kwargs):
       self.output_dim = output_dim
       self.output_length = output_length
-      self.init = initializations.get(init)
-      self.inner_init = initializations.get(inner_init)
+      self.init = initializers.get(init)
+      self.inner_init = initializers.get(inner_init)
       self.activation = activations.get(activation)
       self.W_regularizer = regularizers.get(W_regularizer)
       self.U_regularizer = regularizers.get(U_regularizer)
@@ -269,9 +269,9 @@ class DreamyRNN(Recurrent):
           input_shape = self.input_spec[0].shape
           input_dim = input_shape[2]
           timesteps = input_shape[1]
-          return time_distributed_dense(x, self.W, self.b, self.dropout_W,
+          return TimeDistributed(Dense(x, self.W, self.b, self.dropout_W,
                                         input_dim, self.output_dim,
-                                        timesteps)
+                                        timesteps))
       else:
           return x
 
@@ -397,7 +397,7 @@ class DreamyRNN(Recurrent):
       return (input_shape[0], input_shape[2])
 
 
-class CondDreamyRNN(Recurrent):
+class CondDreamyRNN(RNN):
   def __init__(self, output_dim, output_length, control_dim=2,
                init='glorot_uniform', inner_init='orthogonal',
                activation='tanh',
@@ -405,8 +405,8 @@ class CondDreamyRNN(Recurrent):
                dropout_W=0., dropout_U=0., **kwargs):
       self.output_dim = output_dim
       self.output_length = output_length
-      self.init = initializations.get(init)
-      self.inner_init = initializations.get(inner_init)
+      self.init = initializers.get(init)
+      self.inner_init = initializers.get(inner_init)
       self.activation = activations.get(activation)
       self.W_regularizer = regularizers.get(W_regularizer)
       self.U_regularizer = regularizers.get(U_regularizer)
@@ -471,9 +471,9 @@ class CondDreamyRNN(Recurrent):
           input_shape = self.input_spec[0].shape
           input_dim = input_shape[2]
           timesteps = input_shape[1]
-          return time_distributed_dense(x, self.W, self.b, self.dropout_W,
+          return TimeDistributed(Dense(x, self.W, self.b, self.dropout_W,
                                         input_dim, self.output_dim,
-                                        timesteps)
+                                        timesteps))
       else:
           return x
 

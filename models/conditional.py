@@ -47,7 +47,7 @@ def get_model(sess, image_shape=(80, 160, 3), gf_dim=64, df_dim=64, batch_size=6
               name="transition", gpu=0):
     K.set_session(sess)
     checkpoint_dir = './results_' + name
-    with tf.variable_scope(name):
+    with tf.compat.v1.variable_scope(name):
       # sizes
       ch = image_shape[2]
       rows = [image_shape[0]/i for i in [16, 8, 4, 2, 1]]
@@ -78,14 +78,14 @@ def get_model(sess, image_shape=(80, 160, 3), gf_dim=64, df_dim=64, batch_size=6
       G_dec = G(K.reshape(out, (batch_size*out_leng, z_dim)))
 
       # costs
-      loss = tf.reduce_mean(tf.square(target - out))
+      loss = tf.reduce_mean(input_tensor=tf.square(target - out))
       print("Transition variables:")
       for v in t_vars:
         print(v.name)
 
-      t_optim = tf.train.AdamOptimizer(learning_rate, beta1=beta1).minimize(loss, var_list=t_vars)
+      t_optim = tf.compat.v1.train.AdamOptimizer(learning_rate, beta1=beta1).minimize(loss, var_list=t_vars)
 
-      tf.initialize_all_variables().run()
+      tf.compat.v1.initialize_all_variables().run()
 
     # summaries
     sum_loss = tf.scalar_summary("loss", loss)
@@ -94,7 +94,7 @@ def get_model(sess, image_shape=(80, 160, 3), gf_dim=64, df_dim=64, batch_size=6
     sum_dec = tf.image_summary("E", G_dec)
 
     # saver
-    saver = tf.train.Saver()
+    saver = tf.compat.v1.train.Saver()
     t_sum = tf.merge_summary([sum_e_mean, sum_out, sum_dec, sum_loss])
     writer = tf.train.SummaryWriter("/tmp/logs/"+name, sess.graph)
 
